@@ -1,10 +1,15 @@
 import { defineConfig } from 'drizzle-kit';
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-loadEnv({ path: resolve(import.meta.dirname, '../../.env'), quiet: true });
+// drizzle-kit loads this config through a CommonJS require hook that only
+// polyfills `import.meta.url`; `import.meta.dirname` stays undefined there.
+const configDir = fileURLToPath(new URL('.', import.meta.url));
+
+loadEnv({ path: resolve(configDir, '../../.env'), quiet: true });
 loadEnv({
-  path: resolve(import.meta.dirname, '.env'),
+  path: resolve(configDir, '.env'),
   override: true,
   quiet: true,
 });
@@ -19,8 +24,8 @@ if (databaseUrl === undefined) {
 }
 
 export default defineConfig({
-  schema: resolve(import.meta.dirname, 'src/schema/index.ts'),
-  out: resolve(import.meta.dirname, 'drizzle'),
+  schema: resolve(configDir, 'src/schema/index.ts'),
+  out: resolve(configDir, 'drizzle'),
   dialect: 'postgresql',
   dbCredentials: {
     url: databaseUrl ?? 'postgresql://localhost:5432/wervi',
