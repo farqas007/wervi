@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: oklch(0.97 0.014 254);
+  --color-brand-100: oklch(0.93 0.032 254);
+  --color-brand-200: oklch(0.88 0.06 254);
+  --color-brand-300: oklch(0.8 0.1 254);
+  --color-brand-400: oklch(0.7 0.15 256);
+  --color-brand-500: oklch(0.62 0.19 257);
+  --color-brand-600: oklch(0.55 0.21 258);
+  --color-brand-700: oklch(0.48 0.19 258);
+  --color-brand-800: oklch(0.42 0.16 257);
+  --color-brand-900: oklch(0.37 0.13 256);
+  --color-brand-950: oklch(0.26 0.09 256);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-slate-900 antialiased;
+  }
+}

@@ -1,0 +1,17 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 12 blocks postinstall scripts by default. Only packages that genuinely
+# need a build step are approved; everything else must ship prebuilt binaries.
+# Do not add entries here without checking what the script does.
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+# pnpm 12 refuses packages published within its minimum release age to limit
+# supply-chain risk from brand-new compromised versions. pino-pretty was exempt
+# so the local dev logger is reproducible; revisit and drop this once an older
+# version is pinned.
+minimumReleaseAgeExclude:
+  - pino-pretty@13.2.0
