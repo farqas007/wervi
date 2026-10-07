@@ -86,6 +86,18 @@ Delivered so far, on top of `pnpm verify`:
 - **Routes**: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
   (idempotent), `GET /auth/session`, `GET /auth/me`, and `GET /auth/protected`
   demonstrating the `requireAuth` guard.
+- **Role guards**: `fastify.requireAuth`, `fastify.requireRoles(...roles)`, and
+  `fastify.requireAdmin` preHandlers. Roles are additive and checked exactly —
+  `admin` does not implicitly unlock a role-scoped route. Guard rejects are the
+  generic `forbidden` envelope, so callers can never enumerate which role a
+  route requires. Demo route `GET /auth/roles/client`,
+  `GET /auth/roles/freelancer`, `GET /auth/roles/admin`, and the any-of
+  `GET /auth/roles/participant` (`client` or `freelancer`) exercise the matrix;
+  marketplace routes will reuse the same guards.
+- **Role assignment is server-side**: there is no public endpoint for changing
+  roles. Sign-up is strict and rejects any `roles`/`status` payload, and the DB
+  enforces a CHECK constraint. Role management will be wired to the admin
+  subsystem in a later phase.
 - **WERVI-specific user shape**: emails are normalized (trim + lowercase) and
   compared case-insensitively, so duplicates collide on any casing; accounts
   are created with `roles: ['client']` and `status: 'active'`, and clients can
@@ -96,14 +108,16 @@ Delivered so far, on top of `pnpm verify`:
 - **Web app**: `/login` and `/signup` pages, a client-side sign-out button, and
   a session-aware home page that reads the API session server-side via
   `getServerSession()`.
-- **Tests**: 19 integration tests against a real Postgres covering normalization,
+- **Tests**: 27 integration tests against a real Postgres covering normalization,
   duplicate casing/whitespace, invalid payloads, login failures, session shape,
-  the protected guard, idempotent logout, suspended accounts (403), and
+  the protected guard, idempotent logout, suspended/closed accounts (403), the
+  full role matrix (each role granted/denied, any-of routing, additive roles,
+  no session → 401, no role-change surface, unknown-role rejection), and
   OpenAPI coverage of every auth route.
 
-Still ahead in this phase: email verification, password reset, role guards and
-authorization helpers for `client`, `freelancer` and `admin`, and account
-lockout on repeated failures.
+Still ahead in this phase: email verification, password reset, role guards for
+real marketplace routes, admin role management, and account lockout on repeated
+failures.
 
 Depends on: 2.
 

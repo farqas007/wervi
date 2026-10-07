@@ -60,6 +60,19 @@ export default async function HomePage() {
                 <span>
                   Signed in as <strong>{session.user.name}</strong>
                 </span>
+                <span
+                  aria-label="Your account roles"
+                  className="flex items-center gap-1"
+                >
+                  {session.user.roles.map((role) => (
+                    <span
+                      key={role}
+                      className="rounded bg-brand-50 px-2 py-0.5 font-medium text-brand-700 capitalize"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </span>
                 <SignOutButton />
               </>
             ) : (

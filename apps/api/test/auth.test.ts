@@ -6,6 +6,7 @@ import {
   type TestDatabaseTarget,
 } from '@wervi/db/testing';
 import { users } from '@wervi/db';
+import { type AuthUser, type Role } from '@wervi/shared';
 import { eq } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -180,6 +181,7 @@ describe.skipIf(skip)('auth endpoints', () => {
       { ...signupPayload(), password: 'short' },
       { ...signupPayload(), name: '' },
       { ...signupPayload(), roles: ['admin'] },
+      { ...signupPayload(), roles: ['root'] },
       { ...signupPayload(), surprise: 'field' },
     ];
 
@@ -370,8 +372,227 @@ describe.skipIf(skip)('auth endpoints', () => {
       '/auth/session',
       '/auth/me',
       '/auth/protected',
+      '/auth/roles/client',
+      '/auth/roles/freelancer',
+      '/auth/roles/admin',
+      '/auth/roles/participant',
     ]) {
       expect(paths).toContain(expected);
     }
+  });
+
+  describe('authorization and roles', () => {
+    const accountWithRoles = async (roles: Role[]) => {
+      const payload = signupPayload();
+      const signedUp = await signup(payload);
+      expect(signedUp.statusCode).toBe(200);
+      const userId = signedUp.json().user.id as string;
+      if (roles.length > 0) {
+        await database.db
+          .update(users)
+          .set({ roles })
+          .where(eq(users.id, userId));
+      }
+      return {
+        cookie: cookieHeader(signedUp),
+        user: signedUp.json().user as AuthUser,
+      };
+    };
+
+    const get = async (path: string, cookie?: string) =>
+      app.inject({
+        method: 'GET',
+        url: path,
+        headers: cookie === undefined ? {} : { cookie },
+      });
+
+    const roleRoutes = [
+      '/auth/roles/client',
+      '/auth/roles/freelancer',
+      '/auth/roles/admin',
+      '/auth/roles/participant',
+    ] as const;
+
+    const genericForbidden = (response: LightMyRequestResponse) => {
+      expect(response.statusCode).toBe(403);
+      const body = response.json();
+      expect(body.error.code).toBe('forbidden');
+      for (const needle of ['client', 'freelancer', 'admin']) {
+        expect(JSON.stringify(body).toLowerCase()).not.toContain(needle);
+      }
+      expectNoSensitiveLeaks(body);
+    };
+
+    it('has no role-gated route reachable without a session', async () => {
+      for (const path of roleRoutes) {
+        const response = await get(path);
+        expect(response.statusCode, path).toBe(401);
+        expect(response.json().error.code).toBe('unauthorized');
+      }
+    });
+
+    it('admits the matching role to each exact-role route', async () => {
+      const client = await accountWithRoles(['client']);
+      const clientOk = await get('/auth/roles/client', client.cookie);
+      expect(clientOk.statusCode).toBe(200);
+      expect(clientOk.json().authorizedRole).toBe('client');
+
+      const freelancer = await accountWithRoles(['freelancer']);
+      const freelancerOk = await get(
+        '/auth/roles/freelancer',
+        freelancer.cookie,
+      );
+      expect(freelancerOk.statusCode).toBe(200);
+      expect(freelancerOk.json().authorizedRole).toBe('freelancer');
+
+      const admin = await accountWithRoles(['admin']);
+      const adminOk = await get('/auth/roles/admin', admin.cookie);
+      expect(adminOk.statusCode).toBe(200);
+      expect(adminOk.json().authorizedRole).toBe('admin');
+      expectCleanUser(adminOk.json().user);
+      expectNoSensitiveLeaks(adminOk.json());
+    });
+
+    it('forbids role routes the account does not hold', async () => {
+      const expectations: {
+        roles: Role[];
+        allowed: string[];
+        denied: string[];
+      }[] = [
+        {
+          roles: ['client'],
+          allowed: ['/auth/roles/client', '/auth/roles/participant'],
+          denied: ['/auth/roles/freelancer', '/auth/roles/admin'],
+        },
+        {
+          roles: ['freelancer'],
+          allowed: ['/auth/roles/freelancer', '/auth/roles/participant'],
+          denied: ['/auth/roles/client', '/auth/roles/admin'],
+        },
+        {
+          roles: ['admin'],
+          allowed: ['/auth/roles/admin'],
+          denied: [
+            '/auth/roles/client',
+            '/auth/roles/freelancer',
+            '/auth/roles/participant',
+          ],
+        },
+      ];
+
+      for (const { roles, allowed, denied } of expectations) {
+        const account = await accountWithRoles(roles);
+        for (const path of allowed) {
+          expect((await get(path, account.cookie)).statusCode, path).toBe(200);
+        }
+        for (const path of denied) {
+          genericForbidden(await get(path, account.cookie));
+        }
+      }
+    });
+
+    it('admits any listed role to the any-of route, echoing the granted one', async () => {
+      const client = await accountWithRoles(['client']);
+      const asClient = await get('/auth/roles/participant', client.cookie);
+      expect(asClient.statusCode).toBe(200);
+      expect(asClient.json().authorizedRole).toBe('client');
+
+      const freelancer = await accountWithRoles(['freelancer']);
+      const asFreelancer = await get(
+        '/auth/roles/participant',
+        freelancer.cookie,
+      );
+      expect(asFreelancer.statusCode).toBe(200);
+      expect(asFreelancer.json().authorizedRole).toBe('freelancer');
+    });
+
+    it('treats additive roles independently', async () => {
+      const dual = await accountWithRoles(['client', 'freelancer']);
+
+      expect((await get('/auth/roles/client', dual.cookie)).statusCode).toBe(
+        200,
+      );
+      expect(
+        (await get('/auth/roles/freelancer', dual.cookie)).statusCode,
+      ).toBe(200);
+      genericForbidden(await get('/auth/roles/admin', dual.cookie));
+    });
+
+    it('forbids suspended or closed accounts from role-gated routes', async () => {
+      for (const status of ['suspended', 'closed'] as const) {
+        const account = await accountWithRoles(['admin']);
+        await database.db
+          .update(users)
+          .set({ status })
+          .where(eq(users.id, account.user.id));
+        genericForbidden(await get('/auth/roles/admin', account.cookie));
+      }
+    });
+
+    it('gives no role-mutation surface to clients or admins', async () => {
+      const admin = await accountWithRoles(['admin']);
+      const client = await accountWithRoles(['client']);
+
+      const attempts: {
+        method: 'PATCH' | 'POST' | 'PUT';
+        url: string;
+        cookie: string;
+        payload: Record<string, unknown>;
+      }[] = [
+        {
+          method: 'PATCH',
+          url: '/auth/me',
+          cookie: client.cookie,
+          payload: { name: 'Sneaky', roles: ['admin'] },
+        },
+        {
+          method: 'POST',
+          url: '/auth/roles',
+          cookie: client.cookie,
+          payload: { role: 'admin' },
+        },
+        {
+          method: 'PUT',
+          url: '/auth/session',
+          cookie: client.cookie,
+          payload: { roles: ['admin'] },
+        },
+        {
+          method: 'PATCH',
+          url: '/auth/me',
+          cookie: admin.cookie,
+          payload: { roles: ['admin', 'freelancer'] },
+        },
+      ];
+
+      for (const attempt of attempts) {
+        const response = await app.inject({
+          method: attempt.method,
+          url: attempt.url,
+          headers: {
+            cookie: attempt.cookie,
+            'content-type': 'application/json',
+          },
+          payload: attempt.payload,
+        });
+        expect(response.statusCode, attempt.method).toBe(404);
+        expect(response.json().error.code).toBe('not_found');
+      }
+
+      const unchanged = await database.db.query.users.findFirst({
+        where: eq(users.id, admin.user.id),
+      });
+      expect(unchanged?.roles).toEqual(['admin']);
+    });
+
+    it('refuses to persist an unknown role at the database level', async () => {
+      const account = await accountWithRoles(['client']);
+      await expect(
+        database.db
+          .update(users)
+          .set({ roles: ['root'] as unknown as Role[] })
+          .where(eq(users.id, account.user.id)),
+      ).rejects.toThrow();
+    });
   });
 });

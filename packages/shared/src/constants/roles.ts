@@ -21,6 +21,28 @@ export const accountSchema = z
 
 export type Account = z.infer<typeof accountSchema>;
 
+/**
+ * True when the account holds at least one of the required roles. Roles are
+ * additive, so membership is always checked against the full set a user carries.
+ */
+export function hasAnyRole(
+  userRoles: readonly Role[],
+  requiredRoles: readonly Role[],
+): boolean {
+  return requiredRoles.some((role) => userRoles.includes(role));
+}
+
+/**
+ * The first required role the account holds, or `undefined`. Callers reuse the
+ * result (e.g. to echo which role authorized a request) instead of re-searching.
+ */
+export function findGrantedRole(
+  userRoles: readonly Role[],
+  requiredRoles: readonly Role[],
+): Role | undefined {
+  return requiredRoles.find((role) => userRoles.includes(role));
+}
+
 export function isStaff(roles: readonly Role[]): boolean {
   return roles.includes('admin');
 }

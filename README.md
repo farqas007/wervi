@@ -53,6 +53,9 @@ Endpoints:
 
 - `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
 - `GET /auth/session`, `GET /auth/me`, `GET /auth/protected` (auth guard demo)
+- `GET /auth/roles/client`, `/auth/roles/freelancer`, `/auth/roles/admin`,
+  `/auth/roles/participant` (role-guard demonstrations: exact-role, admin-only,
+  any-of)
 
 If you prefer a local database instead of Neon, `docker-compose up -d` starts
 Postgres and Redis, and `.env` should point at

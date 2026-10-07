@@ -86,6 +86,8 @@ export {
   accountSchema,
   canBid,
   canHire,
+  findGrantedRole,
+  hasAnyRole,
   isStaff,
   roleSchema,
 } from './constants/roles.js';

@@ -1,6 +1,7 @@
-import type { AuthSessionResponse } from '@wervi/shared';
+import type { AuthSessionResponse, Role } from '@wervi/shared';
 import type { FastifyPluginCallback, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import { assertRole } from '../auth/authorization.js';
 import { toAuthProxyRequest } from '../auth/dispatch.js';
 import { createAuthInstance, type AuthInstance } from '../auth/instance.js';
 import { getRequiredSession } from '../auth/session.js';
@@ -15,6 +16,18 @@ declare module 'fastify' {
      * envelopes. Register it on any protected route.
      */
     requireAuth: (request: FastifyRequest) => Promise<AuthSessionResponse>;
+    /**
+     * PreHandler factory for role-gated routes: resolves the same session as
+     * `requireAuth`, then requires the account to hold at least one of `roles`.
+     * `admin` does not implicitly satisfy a role-scoped route.
+     */
+    requireRoles: (
+      roles: readonly Role[],
+    ) => (request: FastifyRequest) => Promise<AuthSessionResponse>;
+    /** PreHandler factory for admin-only routes, shorthand for `requireRoles(['admin'])`. */
+    requireAdmin: () => (
+      request: FastifyRequest,
+    ) => Promise<AuthSessionResponse>;
   }
   interface FastifyRequest {
     /** Set by `requireAuth`; only read inside protected routes. */
@@ -71,5 +84,23 @@ export const authPlugin: FastifyPluginCallback<AuthPluginOptions> =
       );
       request.authData = session;
       return session;
+    });
+
+    fastify.decorate(
+      'requireRoles',
+      (roles: readonly Role[]) => async (request: FastifyRequest) => {
+        const session = await getRequiredSession(
+          fastify.auth,
+          toAuthProxyRequest(request),
+        );
+        assertRole(session.user, roles);
+        request.authData = session;
+        return session;
+      },
+    );
+
+    fastify.decorate('requireAdmin', () => {
+      const guard = fastify.requireRoles(['admin']);
+      return (request: FastifyRequest) => guard(request);
     });
   });
