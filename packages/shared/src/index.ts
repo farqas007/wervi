@@ -102,6 +102,21 @@ export type {
   ErrorResponse,
 } from './schemas/errors.js';
 
+export {
+  authSessionResponseSchema,
+  authSessionSchema,
+  authUserResponseSchema,
+  authUserSchema,
+} from './schemas/auth.js';
+export type {
+  AuthSession,
+  AuthSessionResponse,
+  AuthUser,
+  AuthUserResponse,
+} from './schemas/auth.js';
+
+export { emailsMatch, normalizeEmail } from './utils/email.js';
+
 export { currencySchema, moneySchema } from './schemas/money.js';
 export type { Money } from './schemas/money.js';
 

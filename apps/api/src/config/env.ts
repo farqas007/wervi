@@ -55,6 +55,14 @@ const envSchema = z
       .int()
       .positive()
       .default(15_000),
+
+    // Better Auth. `BETTER_AUTH_SECRET` is optional in development where an
+    // ephemeral secret is generated per boot; production requires a stable,
+    // long-lived value so sessions survive restarts. `BETTER_AUTH_URL`
+    // defaults to `API_BASE_URL` (used to build absolute callback URLs).
+    BETTER_AUTH_SECRET: z.string().min(16).optional(),
+    BETTER_AUTH_URL: z.url().optional(),
+    BETTER_AUTH_TRUSTED_ORIGINS: listVar(''),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {
@@ -72,6 +80,13 @@ const envSchema = z
         code: 'custom',
         path: ['API_EXPOSE_DOCS'],
         message: 'API_EXPOSE_DOCS must be false in production',
+      });
+    }
+    if (value['BETTER_AUTH_SECRET'] === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BETTER_AUTH_SECRET'],
+        message: 'BETTER_AUTH_SECRET is required in production',
       });
     }
   });

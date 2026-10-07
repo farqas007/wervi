@@ -5,7 +5,8 @@ proposals, clients hire, and the resulting projects are managed through
 milestone-based escrow payments, messaging, reviews and disputes.
 
 WERVI is being built subsystem by subsystem. This repository currently
-contains **Phase 1 — the project foundation**.
+contains **Phase 1 — the project foundation**, **Phase 2 — the database core**
+and **Phase 3 — auth and accounts** (in progress).
 
 ---
 
@@ -18,7 +19,7 @@ contains **Phase 1 — the project foundation**.
 | Web | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
 | API | Fastify 5, REST + OpenAPI 3.1 |
 | Contracts | Zod 4, shared via `@wervi/shared` |
-| Auth | Better Auth (planned, Phase 3) |
+| Auth | Better Auth 1.7 (email + password), served by Fastify |
 | Database | PostgreSQL + Drizzle ORM |
 | Tests | Vitest, Playwright (planned) |
 | CI | GitHub Actions |
@@ -39,7 +40,7 @@ choice and [docs/SUBSYSTEMS.md](docs/SUBSYSTEMS.md) for the delivery plan.
 
 ```bash
 pnpm install
-cp .env.example .env      # then fill in DATABASE_URL
+cp .env.example .env      # then fill in DATABASE_URL and BETTER_AUTH_SECRET
 pnpm dev
 ```
 
@@ -47,6 +48,11 @@ pnpm dev
 - API: http://localhost:4000
 - API docs: http://localhost:4000/docs
 - OpenAPI document: http://localhost:4000/openapi.json
+
+Endpoints:
+
+- `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
+- `GET /auth/session`, `GET /auth/me`, `GET /auth/protected` (auth guard demo)
 
 If you prefer a local database instead of Neon, `docker-compose up -d` starts
 Postgres and Redis, and `.env` should point at

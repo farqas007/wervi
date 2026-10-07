@@ -27,6 +27,8 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** Forwarded to `fetch`; set to `'include'` for cookie-based auth calls. */
+  credentials?: RequestCredentials;
 }
 
 /**
@@ -58,6 +60,7 @@ export async function apiRequest<T>(
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: options.signal,
+      credentials: options.credentials,
       headers: {
         accept: 'application/json',
         ...(options.body === undefined

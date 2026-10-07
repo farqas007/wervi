@@ -7,6 +7,7 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { getEnv } from './config/env.js';
+import { authPlugin } from './plugins/auth.js';
 import { dbPlugin } from './plugins/db.js';
 import { envPlugin } from './plugins/env.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
@@ -73,6 +74,7 @@ export async function buildApp(
     verifyOnBoot: options.database?.verifyOnBoot ?? env.NODE_ENV !== 'test',
   });
   await fastify.register(openapiPlugin);
+  await fastify.register(authPlugin);
   await fastify.register(routes, { prefix: '/' });
 
   return fastify;

@@ -1,4 +1,13 @@
+import Link from 'next/link';
+import { SignOutButton } from '@/components/auth/sign-out-button';
+import { getServerSession } from '@/lib/server-auth';
+
 const SUBSYSTEMS = [
+  {
+    slug: 'account',
+    title: 'Account',
+    description: 'Create an account and sign in with your email and password.',
+  },
   {
     slug: 'jobs',
     title: 'Jobs',
@@ -35,13 +44,42 @@ const SUBSYSTEMS = [
   },
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getServerSession();
+
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-16 px-6 py-20">
       <header className="flex flex-col gap-6">
-        <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
-          WERVI
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
+            WERVI
+          </p>
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            {session ? (
+              <>
+                <span>
+                  Signed in as <strong>{session.user.name}</strong>
+                </span>
+                <SignOutButton />
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="rounded-lg border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-lg bg-brand-600 px-5 py-3 font-medium text-white transition hover:bg-brand-700"
+                >
+                  Join WERVI
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
         <h1 className="max-w-3xl text-5xl font-bold tracking-tight text-balance">
           Hire freelance talent, anywhere in the world.
         </h1>
@@ -56,14 +94,8 @@ export default function HomePage() {
           >
             Browse jobs
           </span>
-          <span
-            aria-disabled="true"
-            className="rounded-lg border border-slate-200 px-5 py-3 font-medium text-slate-400"
-          >
-            Sign in
-          </span>
           <span className="text-sm text-slate-500">
-            Accounts and job listings arrive in Phase 3 and Phase 5.
+            Job listings arrive in Phase 5.
           </span>
         </div>
       </header>

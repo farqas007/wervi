@@ -9,7 +9,7 @@ WERVI is delivered one subsystem at a time. Each phase is built, verified with
 | --- | --- | --- |
 | 1 | Foundation | **Complete** |
 | 2 | Database core | **Complete** |
-| 3 | Auth and accounts | Not started |
+| 3 | Auth and accounts | **In progress** |
 | 4 | Profiles | Not started |
 | 5 | Jobs | Not started |
 | 6 | Proposals | Not started |
@@ -73,12 +73,37 @@ With it:
 
 Depends on: nothing.
 
-## 3. Auth and accounts
+## 3. Auth and accounts — in progress
 
-Registration, email verification, login, logout, session management and
-password reset using Better Auth with the Drizzle adapter. Role guards and an
-authorization helper for `client`, `freelancer` and `admin`. Rate-limited
-endpoints and account lockout on repeated failures.
+Delivered so far, on top of `pnpm verify`:
+
+- **Better Auth 1.7.7 with the Drizzle adapter**. `generateId` is disabled so
+  every id comes from the database's `uuid()` defaults — no foreign Better Auth
+  primary keys leak into WERVI tables.
+- **Fastify-first integration**: explicit `routes -> handler` proxying Backend
+  Auth's WHATWG `Request` API rather than embedding its fetch-style client, so
+  `Set-Cookie` headers round-trip naturally through Fastify.
+- **Routes**: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`
+  (idempotent), `GET /auth/session`, `GET /auth/me`, and `GET /auth/protected`
+  demonstrating the `requireAuth` guard.
+- **WERVI-specific user shape**: emails are normalized (trim + lowercase) and
+  compared case-insensitively, so duplicates collide on any casing; accounts
+  are created with `roles: ['client']` and `status: 'active'`, and clients can
+  never self-assign roles or statuses through the API.
+- **Typed contracts in `@wervi/shared`** (`authUserSchema`, `authSessionSchema`,
+  `authSessionResponseSchema`) — the API serializes to exactly these, and the
+  web app validates responses against them.
+- **Web app**: `/login` and `/signup` pages, a client-side sign-out button, and
+  a session-aware home page that reads the API session server-side via
+  `getServerSession()`.
+- **Tests**: 19 integration tests against a real Postgres covering normalization,
+  duplicate casing/whitespace, invalid payloads, login failures, session shape,
+  the protected guard, idempotent logout, suspended accounts (403), and
+  OpenAPI coverage of every auth route.
+
+Still ahead in this phase: email verification, password reset, role guards and
+authorization helpers for `client`, `freelancer` and `admin`, and account
+lockout on repeated failures.
 
 Depends on: 2.
 
