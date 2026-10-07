@@ -105,11 +105,15 @@ describe.skipIf(target.url === undefined)('seed', () => {
   it('seeds a milestone with two delivery revisions', async () => {
     await runSeed(database);
 
+    // Pinned rather than picked as "the second row by position": two seeded
+    // milestones share position 1 (one per contract), so `order by position`
+    // cannot say which row is second — and the deliveries belong to the pinned
+    // one, not to either of the tied rows.
     const seeded = await database.db
       .select({ id: milestones.id })
       .from(milestones)
-      .orderBy(milestones.position);
-    const milestoneId = seeded[1]?.id ?? '';
+      .where(eq(milestones.id, seedIds.milestones.second));
+    const milestoneId = seeded[0]?.id ?? '';
     expect(milestoneId).not.toBe('');
 
     const deliveries = await database.db

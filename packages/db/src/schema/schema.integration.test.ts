@@ -41,14 +41,53 @@ const target = resolveTestDatabaseUrl();
  * The driver error is the only place a named constraint shows up, so a test that
  * asserts "the database rejected this" without naming the constraint would pass
  * for the wrong reason: a missing column or a bad type fails just as loudly as a
- * CHECK constraint. Each assertion therefore matches the constraint or index
- * name, and rethrows anything else so the real failure is visible.
+ * CHECK constraint.
+ *
+ * Drizzle wraps the driver error as `Failed query: ...`, which names nothing,
+ * and leaves the driver's own message on `cause`. The text below therefore walks
+ * the chain instead of reading one message, so a name on either level matches.
  */
 function errorText(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
+  const parts: string[] = [];
+  let current: unknown = error;
+
+  while (current !== undefined && parts.length < 5) {
+    if (current instanceof Error) {
+      parts.push(`${current.name}: ${current.message}`);
+      current = current.cause;
+    } else {
+      parts.push(JSON.stringify(current) ?? 'undefined');
+      break;
+    }
   }
-  return String(error);
+
+  return parts.join('\n');
+}
+
+/**
+ * Asserts that a statement was rejected with a named constraint or index.
+ *
+ * `rejects.toThrow` cannot express this: it accepts a string, a pattern or an
+ * error *class*, and a plain function argument is taken as that class rather
+ * than as a check of the message. Matching the name — and rethrowing anything
+ * else, so the real failure stays visible — is stated once here instead.
+ */
+async function rejectsWith(
+  statement: Promise<unknown>,
+  constraint: string,
+): Promise<void> {
+  try {
+    await statement;
+  } catch (error) {
+    if (errorText(error).includes(constraint)) {
+      return;
+    }
+    throw error;
+  }
+
+  throw new Error(
+    `expected the statement to be rejected with "${constraint}", but it resolved`,
+  );
 }
 
 describe.skipIf(target.url === undefined)('schema constraints', () => {
@@ -176,7 +215,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         decidedAt: new Date(),
       });
 
-      await expect(
+      await rejectsWith(
         database.db.insert(proposals).values({
           jobId,
           clientId,
@@ -187,10 +226,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           currency: 'USD',
           decidedAt: new Date(),
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('proposals_one_accepted_per_job_unique')) throw e;
-      });
+        'proposals_one_accepted_per_job_unique',
+      );
     });
 
     it('rejects a second proposal from the same freelancer on one job', async () => {
@@ -219,7 +256,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
       const jobId = await insertJob(clientId);
       const freelancerId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(proposals).values({
           jobId,
           clientId: otherClientId,
@@ -228,17 +265,15 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           amountMinor: 100_000,
           currency: 'USD',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('proposals_job_id_client_id_fk')) throw e;
-      });
+        'proposals_job_id_client_id_fk',
+      );
     });
 
     it('rejects bidding on your own job', async () => {
       const clientId = await insertUser();
       const jobId = await insertJob(clientId);
 
-      await expect(
+      await rejectsWith(
         database.db.insert(proposals).values({
           jobId,
           clientId,
@@ -247,10 +282,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           amountMinor: 100_000,
           currency: 'USD',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('proposals_client_not_freelancer_check')) throw e;
-      });
+        'proposals_client_not_freelancer_check',
+      );
     });
 
     it('rejects an acceptance with no decision timestamp', async () => {
@@ -258,7 +291,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
       const jobId = await insertJob(clientId);
       const freelancerId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(proposals).values({
           jobId,
           clientId,
@@ -268,10 +301,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           amountMinor: 100_000,
           currency: 'USD',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('proposals_accepted_needs_decision_check')) throw e;
-      });
+        'proposals_accepted_needs_decision_check',
+      );
     });
 
     it('rejects a zero or negative amount', async () => {
@@ -279,7 +310,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
       const jobId = await insertJob(clientId);
       const freelancerId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(proposals).values({
           jobId,
           clientId,
@@ -288,10 +319,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           amountMinor: 0,
           currency: 'USD',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('proposals_amount_positive_check')) throw e;
-      });
+        'proposals_amount_positive_check',
+      );
     });
   });
 
@@ -357,17 +386,15 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         decidedAt: new Date(),
       });
 
-      await expect(
+      await rejectsWith(
         database.db.insert(contracts).values({
           ...contract,
           proposalId: secondProposal,
           status: 'active',
           activatedAt: new Date(),
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('contracts_one_open_per_job_unique')) throw e;
-      });
+        'contracts_one_open_per_job_unique',
+      );
     });
 
     it('allows a cancelled contract to be replaced', async () => {
@@ -388,13 +415,16 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         closedAt: new Date(),
       });
 
+      // One proposal per freelancer per job, so the replacement contract needs
+      // its own proposal from a different freelancer.
+      const replacementFreelancerId = await insertUser();
       const proposalIds = [randomUUID(), randomUUID()] as const;
       for (const [index, proposalId] of proposalIds.entries()) {
         await database.db.insert(proposals).values({
           id: proposalId,
           jobId,
           clientId,
-          freelancerId,
+          freelancerId: index === 0 ? freelancerId : replacementFreelancerId,
           status: index === 0 ? 'accepted' : 'rejected',
           coverLetter: 'Letter',
           amountMinor: 150_000,
@@ -421,7 +451,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           jobId,
           proposalId: proposalIds[1],
           clientId,
-          freelancerId,
+          freelancerId: replacementFreelancerId,
           title: 'Second attempt',
           budgetModel: 'fixed',
           agreedAmountMinor: 150_000,
@@ -462,7 +492,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         decidedAt: new Date(),
       });
 
-      await expect(
+      await rejectsWith(
         database.db.insert(contracts).values({
           jobId,
           proposalId,
@@ -474,10 +504,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           agreedAmountMinor: 150_000,
           currency: 'USD',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('contracts_completed_at_check')) throw e;
-      });
+        'contracts_completed_at_check',
+      );
     });
 
     describe('proposal identity', () => {
@@ -558,7 +586,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           closedAt: new Date(),
         });
 
-        await expect(
+        await rejectsWith(
           database.db.insert(contracts).values({
             jobId: otherJobId,
             proposalId,
@@ -571,17 +599,15 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
             currency: 'USD',
             activatedAt: new Date(),
           }),
-        ).rejects.toThrow((e: unknown) => {
-          const msg = errorText(e);
-          if (!msg.includes('contracts_proposal_id_job_id_fk')) throw e;
-        });
+          'contracts_proposal_id_job_id_fk',
+        );
       });
 
       it('rejects a contract whose freelancer is not the proposal freelancer', async () => {
         const { clientId, jobId, proposalId } = await setupAward();
         const otherFreelancerId = await insertUser();
 
-        await expect(
+        await rejectsWith(
           database.db.insert(contracts).values({
             jobId,
             proposalId,
@@ -594,17 +620,15 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
             currency: 'USD',
             activatedAt: new Date(),
           }),
-        ).rejects.toThrow((e: unknown) => {
-          const msg = errorText(e);
-          if (!msg.includes('contracts_proposal_id_freelancer_id_fk')) throw e;
-        });
+          'contracts_proposal_id_freelancer_id_fk',
+        );
       });
 
       it('rejects a contract whose client is not the job owner', async () => {
         const { freelancerId, jobId, proposalId } = await setupAward();
         const otherClientId = await insertUser();
 
-        await expect(
+        await rejectsWith(
           database.db.insert(contracts).values({
             jobId,
             proposalId,
@@ -617,16 +641,14 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
             currency: 'USD',
             activatedAt: new Date(),
           }),
-        ).rejects.toThrow((e: unknown) => {
-          const msg = errorText(e);
-          if (!msg.includes('contracts_job_id_client_id_fk')) throw e;
-        });
+          'contracts_job_id_client_id_fk',
+        );
       });
 
       it('rejects a client acting as its own freelancer', async () => {
         const { clientId, jobId, proposalId } = await setupAward();
 
-        await expect(
+        await rejectsWith(
           database.db.insert(contracts).values({
             jobId,
             proposalId,
@@ -639,10 +661,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
             currency: 'USD',
             activatedAt: new Date(),
           }),
-        ).rejects.toThrow((e: unknown) => {
-          const msg = errorText(e);
-          if (!msg.includes('contracts_client_not_freelancer_check')) throw e;
-        });
+          'contracts_client_not_freelancer_check',
+        );
       });
     });
   });
@@ -651,7 +671,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('rejects a published job with no publication timestamp', async () => {
       const clientId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(jobs).values({
           clientId,
           slug: `job-${randomUUID()}`,
@@ -663,16 +683,14 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           currency: 'USD',
           workMode: 'remote',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('jobs_published_at_check')) throw e;
-      });
+        'jobs_published_at_check',
+      );
     });
 
     it('rejects a budget range that runs backwards', async () => {
       const clientId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(jobs).values({
           clientId,
           slug: `job-${randomUUID()}`,
@@ -686,16 +704,14 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           currency: 'USD',
           workMode: 'remote',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('jobs_budget_range_check')) throw e;
-      });
+        'jobs_budget_range_check',
+      );
     });
 
     it('rejects an unknown currency', async () => {
       const clientId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(jobs).values({
           clientId,
           slug: `job-${randomUUID()}`,
@@ -707,10 +723,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           currency: 'XBT',
           workMode: 'remote',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('jobs_currency_check')) throw e;
-      });
+        'jobs_currency_check',
+      );
     });
   });
 
@@ -718,7 +732,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('rejects a rate with no currency', async () => {
       const userId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(freelancerProfiles).values({
           userId,
           headline: 'Headline',
@@ -726,11 +740,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           availability: 'available',
           timezone: 'UTC',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('freelancer_profiles_rate_currency_pair_check'))
-          throw e;
-      });
+        'freelancer_profiles_rate_currency_pair_check',
+      );
     });
 
     it('allows a profile with neither rate nor currency', async () => {
@@ -749,7 +760,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('rejects a negative rate', async () => {
       const userId = await insertUser();
 
-      await expect(
+      await rejectsWith(
         database.db.insert(freelancerProfiles).values({
           userId,
           headline: 'Headline',
@@ -758,10 +769,8 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
           availability: 'available',
           timezone: 'UTC',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('freelancer_profiles_hourly_rate_check')) throw e;
-      });
+        'freelancer_profiles_hourly_rate_check',
+      );
     });
   });
 
@@ -769,14 +778,12 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('rejects a category that is its own parent', async () => {
       const id = randomUUID();
 
-      await expect(
+      await rejectsWith(
         database.db
           .insert(categories)
           .values({ id, slug: 'loop', name: 'Loop', parentId: id }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('categories_parent_not_self_check')) throw e;
-      });
+        'categories_parent_not_self_check',
+      );
     });
 
     it('keeps a skill in use when its category is deleted', async () => {
@@ -809,32 +816,27 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         note: 'First',
       });
 
-      await expect(
+      await rejectsWith(
         database.db.insert(milestoneDeliveries).values({
           milestoneId: ids,
           revisionNumber: 1,
           note: 'Also first',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('milestone_deliveries_milestone_revision_unique'))
-          throw e;
-      });
+        'milestone_deliveries_milestone_revision_unique',
+      );
     });
 
     it('rejects a verdict with no review timestamp', async () => {
       const milestoneId = await seedContractForMilestones(database);
 
-      await expect(
+      await rejectsWith(
         database.db.insert(milestoneDeliveries).values({
           milestoneId,
           revisionNumber: 1,
           outcome: 'approved',
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('milestone_deliveries_review_pair_check')) throw e;
-      });
+        'milestone_deliveries_review_pair_check',
+      );
     });
 
     it('rejects a revision number below the first', async () => {
@@ -868,49 +870,93 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('rejects a rating outside 1..5', async () => {
       const ids = await seedCompletedContract(database);
 
-      await expect(
+      await rejectsWith(
         database.db.insert(reviews).values({
           contractId: ids.contractId,
           authorId: ids.clientId,
           subjectId: ids.freelancerId,
           rating: 6,
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('reviews_rating_check')) throw e;
-      });
+        'reviews_rating_check',
+      );
     });
 
     it('allows only one review per party per contract', async () => {
-      const ids = await seedCompletedContract(database);
+      // Its own contract rather than a seeded one: the seed already reviews the
+      // contracts it completes, and the first insert has to succeed for the
+      // second one to be the duplicate this test is about.
+      const clientId = await insertUser();
+      const freelancerId = await insertUser();
+      const jobId = randomUUID();
+      await database.db.insert(jobs).values({
+        id: jobId,
+        clientId,
+        slug: `job-${jobId}`,
+        title: 'Job',
+        description: 'Description',
+        status: 'published',
+        visibility: 'public',
+        budgetModel: 'fixed',
+        currency: 'USD',
+        workMode: 'remote',
+        publishedAt: new Date(),
+      });
+
+      const proposalId = randomUUID();
+      await database.db.insert(proposals).values({
+        id: proposalId,
+        jobId,
+        clientId,
+        freelancerId,
+        status: 'accepted',
+        coverLetter: 'Letter',
+        amountMinor: 150_000,
+        currency: 'USD',
+        decidedAt: new Date(),
+      });
+
+      const contractId = randomUUID();
+      await database.db.insert(contracts).values({
+        id: contractId,
+        jobId,
+        proposalId,
+        clientId,
+        freelancerId,
+        status: 'completed',
+        title: 'Contract',
+        budgetModel: 'fixed',
+        agreedAmountMinor: 150_000,
+        currency: 'USD',
+        completedAt: new Date(),
+      });
+
       const review = {
-        contractId: ids.contractId,
-        authorId: ids.clientId,
-        subjectId: ids.freelancerId,
+        contractId,
+        authorId: clientId,
+        subjectId: freelancerId,
         rating: 5,
       };
 
       await database.db.insert(reviews).values(review);
 
-      await expect(database.db.insert(reviews).values(review)).rejects.toThrow(
-        /reviews_contract_id_author_id_unique/,
+      await rejectsWith(
+        database.db.insert(reviews).values(review),
+        'reviews_contract_id_author_id_unique',
       );
     });
 
     it('rejects reviewing yourself', async () => {
       const ids = await seedCompletedContract(database);
 
-      await expect(
+      await rejectsWith(
         database.db.insert(reviews).values({
           contractId: ids.contractId,
           authorId: ids.clientId,
           subjectId: ids.clientId,
           rating: 5,
         }),
-      ).rejects.toThrow((e: unknown) => {
-        const msg = errorText(e);
-        if (!msg.includes('reviews_author_not_subject_check')) throw e;
-      });
+        'reviews_author_not_subject_check',
+      );
     });
   });
 
@@ -996,6 +1042,7 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
     it('advances updated_at on a bare update', async () => {
       const userId = await insertUser({
         createdAt: new Date('2024-01-01T00:00:00Z'),
+        updatedAt: new Date('2024-01-01T00:00:00Z'),
       });
 
       const before = await database.db
