@@ -61,6 +61,15 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      # `eslint .` type-checks every workspace, and workspace imports resolve
+      # through each package's `types` field to gitignored dist/ output — a
+      # fresh checkout has none, so every @wervi/shared and @wervi/db import
+      # would surface as "type that cannot be resolved". Build exactly those two
+      # packages first; the @wervi/db filter pulls in @wervi/shared as a
+      # dependency, so the lint-consuming types exist before lint runs.
+      - name: Build packages lint depends on
+        run: pnpm --filter "@wervi/db..." run build
+
       - name: Lint
         run: pnpm lint
 
@@ -108,6 +117,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # `pnpm db:migrate` and `pnpm db:generate` load the Drizzle schema from
+      # source with tsx/drizzle-kit, but the schema imports @wervi/shared
+      # through its built dist/ files, which a fresh checkout does not have.
+      # Building @wervi/shared is therefore the only build this job needs; the
+      # other workspace packages are consumed from source, never from dist.
+      - name: Build shared package
+        run: pnpm --filter @wervi/shared run build
 
       - name: Apply committed migrations
         run: pnpm db:migrate
