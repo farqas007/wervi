@@ -46,7 +46,7 @@ jobs:
       DATABASE_SSL: disable
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
 
@@ -97,7 +97,7 @@ jobs:
       DATABASE_SSL: disable
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
 
