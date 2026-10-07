@@ -19,14 +19,25 @@ export interface Database {
   close: () => Promise<void>;
 }
 
-export function createDatabase(options: DatabaseOptions): Database {
+/**
+ * Builds a pool.
+ *
+ * `applicationName` is the only connection-level difference that matters for
+ * observability, so it is the one thing a caller may override without owning
+ * the whole option set.
+ */
+export function createDatabase(
+  options: DatabaseOptions,
+  overrides: { applicationName?: string } = {},
+): Database {
   const sql = postgres(options.url, {
     max: options.maxConnections ?? 10,
     ssl: options.ssl === false ? false : 'require',
     idle_timeout: 20,
     connect_timeout: 15,
     connection: {
-      application_name: options.applicationName ?? 'wervi',
+      application_name:
+        overrides.applicationName ?? options.applicationName ?? 'wervi',
       statement_timeout: options.statementTimeoutMs ?? 15_000,
     },
   });
@@ -56,8 +67,16 @@ export async function closeDatabase(): Promise<void> {
   instance = undefined;
 }
 
-export function loadDatabaseOptions(): DatabaseOptions {
-  const url = process.env['DATABASE_URL'];
+/**
+ * Reads connection options from the environment.
+ *
+ * `urlOverride` exists so the integration test harness can point the same
+ * parsing logic at `DATABASE_TEST_URL` without duplicating it or mutating
+ * `process.env` behind the rest of the process's back. Production callers pass
+ * nothing and get `DATABASE_URL`.
+ */
+export function loadDatabaseOptions(urlOverride?: string): DatabaseOptions {
+  const url = urlOverride ?? process.env['DATABASE_URL'];
   if (url === undefined) {
     throw new Error('DATABASE_URL is not set');
   }

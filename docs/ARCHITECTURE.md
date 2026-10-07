@@ -31,6 +31,12 @@ from day one, and any module can be extracted later if it ever needs to.
 
 The dependency graph is acyclic and enforced by TypeScript project references.
 
+Inside `@wervi/api`, storage is reached through repositories
+(`src/repositories`): services depend on an interface, and the composition root
+supplies the Drizzle implementation. Queries live in the repository and nowhere
+else, so a table change has one place to move. `docs/DATABASE.md` covers the
+schema conventions, the rules the database enforces, and how to migrate it.
+
 ## Technology decisions
 
 ### TypeScript everywhere

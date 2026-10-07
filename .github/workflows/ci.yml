@@ -39,6 +39,10 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://wervi:wervi@localhost:5432/wervi_test
+      # The database integration tests read this first and fall back to
+      # DATABASE_URL only when its name contains "test". Named separately so a
+      # developer's local DATABASE_URL can never become a target of `truncate`.
+      DATABASE_TEST_URL: postgresql://wervi:wervi@localhost:5432/wervi_test
       DATABASE_SSL: disable
 
     steps:

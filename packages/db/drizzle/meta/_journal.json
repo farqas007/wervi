@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791231118429,
+      "tag": "0000_wandering_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791231129326,
+      "tag": "0001_wervi_core_extensions",
+      "breakpoints": true
+    }
+  ]
+}

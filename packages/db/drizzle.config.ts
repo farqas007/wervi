@@ -25,8 +25,17 @@ if (databaseUrl === undefined) {
 
 export default defineConfig({
   schema: resolve(configDir, 'src/schema/index.ts'),
-  out: resolve(configDir, 'drizzle'),
+  // Relative on purpose: `drizzle-kit generate --custom` in 0.31.11 joins this
+  // value with a prefix, so an absolute path makes it fail with a mangled
+  // `.//abs/path` and no custom migration. Config discovery already requires
+  // running from this directory, so a relative `out` resolves identically.
+  out: './drizzle',
   dialect: 'postgresql',
+  // Must match the runtime client. Without it, a column defined as
+  // `hourlyRateMinor` is generated as "hourlyRateMinor" while queries built by
+  // the client send "hourly_rate_minor", and the drift check in CI sees a
+  // database that does not match a migration.
+  casing: 'snake_case',
   dbCredentials: {
     url: databaseUrl ?? 'postgresql://localhost:5432/wervi',
     ssl,

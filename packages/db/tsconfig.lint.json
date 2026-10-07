@@ -8,6 +8,6 @@
     "incremental": false,
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "drizzle.config.ts"],
+  "include": ["src/**/*.ts", "*.config.ts"],
   "references": []
 }

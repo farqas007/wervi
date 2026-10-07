@@ -8,7 +8,7 @@ WERVI is delivered one subsystem at a time. Each phase is built, verified with
 | # | Subsystem | Status |
 | --- | --- | --- |
 | 1 | Foundation | **Complete** |
-| 2 | Database core | Not started |
+| 2 | Database core | **Complete** |
 | 3 | Auth and accounts | Not started |
 | 4 | Profiles | Not started |
 | 5 | Jobs | Not started |
@@ -40,11 +40,36 @@ WERVI is delivered one subsystem at a time. Each phase is built, verified with
   contract end to end
 - CI: format, lint, typecheck, test, build, plus a migration drift check
 
-## 2. Database core
+## 2. Database core — complete
 
-Tables for users, accounts, sessions and verification tokens. Enums for roles
-and account status. First migrations, a seed script with realistic development
-data, and integration tests that run against a real Postgres instance.
+Delivered, in 19 tables grouped by domain, each in its own module under
+`packages/db/src/schema`:
+
+- **auth** — `users`, `auth_accounts`, `auth_sessions`, `auth_verifications`,
+  shaped for the Better Auth adapter Phase 3 will drive
+- **taxonomy** — `categories`, `skills`
+- **profiles** — `freelancer_profiles`, `client_profiles`, `profile_skills`,
+  `profile_languages`, `portfolio_items`
+- **jobs** — `jobs`, `job_skills`
+- **proposals** — `proposals`
+- **contracts** — `contracts`
+- **milestones** — `milestones`, `milestone_deliveries`
+- **reviews** — `reviews`
+- **audit** — `audit_log`
+
+With it:
+
+- Lifecycle statuses, transition maps and the non-status vocabularies moved into
+  `@wervi/shared`, so the database CHECK constraint, the Zod schemas and the
+  TypeScript types are generated from one list
+- Two migrations: the generated baseline and a custom migration carrying the
+  `updated_at` trigger, `pg_trgm`, trigram indexes and full-text indexes
+- A deterministic seed: fixed ids and timestamps, one transaction, truncate
+  first, with data chosen to exercise the constraints rather than to look full
+- Integration tests against a real PostgreSQL, skipped locally unless
+  `DATABASE_TEST_URL` names a test database
+- `docs/DATABASE.md`: conventions, ownership, and how to change the schema
+- `apps/api/src/repositories`: the storage interface Phase 3 onwards build on
 
 Depends on: nothing.
 
