@@ -14,3 +14,17 @@ export type {
 } from './users.repository.js';
 
 export { DrizzleUsersRepository } from './drizzle-users.repository.js';
+
+export type {
+  ClientProfileRecord,
+  ClientProfileWrite,
+  FreelancerProfileRecord,
+  FreelancerProfileWrite,
+  ProfileLanguageRecord,
+  ProfileSkillRecord,
+  ProfilesRepository,
+  ReplaceLanguageItem,
+  ReplaceSkillItem,
+} from './profiles.repository.js';
+
+export { DrizzleProfilesRepository } from './drizzle-profiles.repository.js';

@@ -6,18 +6,21 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly requestId: string | undefined;
+  readonly details?: { path: string; message: string }[];
 
   constructor(
     status: number,
     code: string,
     message: string,
     requestId?: string,
+    details?: { path: string; message: string }[],
   ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    this.details = details;
   }
 }
 
@@ -115,6 +118,7 @@ function toApiError(status: number, payload: unknown): ApiError {
       parsed.data.error.code,
       parsed.data.error.message,
       parsed.data.error.requestId,
+      parsed.data.error.details,
     );
   }
   return new ApiError(status, 'internal_error', `Request failed (${status})`);

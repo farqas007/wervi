@@ -151,3 +151,65 @@ export {
   sumMoney,
   toMinorUnits,
 } from './utils/money.js';
+
+export {
+  isValidCountryCode,
+  isValidLanguageCode,
+  isValidTimeZone,
+} from './utils/locale.js';
+
+export {
+  COUNTRY_CODES,
+  COUNTRY_CODES_SET,
+  LANGUAGE_CODES,
+  LANGUAGE_CODES_SET,
+} from './constants/iso-codes.js';
+
+export {
+  categoryListResponseSchema,
+  categorySchema,
+  skillListResponseSchema,
+  skillSchema,
+} from './schemas/taxonomy.js';
+export type {
+  Category,
+  CategoryListResponse,
+  Skill,
+  SkillListResponse,
+} from './schemas/taxonomy.js';
+
+export {
+  MAX_PROFILE_LANGUAGES,
+  MAX_PROFILE_SKILL_YEARS,
+  MAX_PROFILE_SKILLS,
+  clientProfileSchema,
+  freelancerProfileSchema,
+  freelancerProfileViewSchema,
+  myProfileResponseSchema,
+  profileLanguageInputSchema,
+  profileLanguageListResponseSchema,
+  profileLanguageSchema,
+  profileSkillListResponseSchema,
+  profileSkillSchema,
+  profileSkillViewSchema,
+  publicProfileResponseSchema,
+  replaceLanguagesRequestSchema,
+  replaceSkillsRequestSchema,
+  updateProfileRequestSchema,
+} from './schemas/profiles.js';
+export type {
+  ClientProfile,
+  FreelancerProfile,
+  FreelancerProfileView,
+  MyProfileResponse,
+  ProfileLanguage,
+  ProfileLanguageInput,
+  ProfileLanguageListResponse,
+  ProfileSkill,
+  ProfileSkillListResponse,
+  ProfileSkillView,
+  PublicProfileResponse,
+  ReplaceLanguagesRequest,
+  ReplaceSkillsRequest,
+  UpdateProfileRequest,
+} from './schemas/profiles.js';

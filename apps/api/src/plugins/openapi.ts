@@ -8,7 +8,14 @@ const OPENAPI_TAGS = [
   { name: 'system', description: 'Liveness, readiness and diagnostics' },
   { name: 'auth', description: 'Registration, sessions and account recovery' },
   { name: 'users', description: 'Accounts and roles' },
-  { name: 'profiles', description: 'Freelancer profiles and portfolios' },
+  {
+    name: 'profiles',
+    description: 'Freelancer and client profiles, skills and languages',
+  },
+  {
+    name: 'taxonomy',
+    description: 'The public categories and skills vocabulary',
+  },
   { name: 'jobs', description: 'Job postings, search and categories' },
   { name: 'proposals', description: 'Freelancer proposals on open jobs' },
   { name: 'contracts', description: 'Hiring and project lifecycle' },

@@ -15,12 +15,22 @@ const GET_SESSION_PATH = '/api/auth/get-session';
  * The session endpoint reads the signed `session_token` cookie and answers
  * `200 { session, user }` or a `null` body. The token never leaves Better
  * Auth's cookie: it is not part of the WERVI session contract.
+ *
+ * Lookup is a stateless read keyed on the cookie, so the outer request's own
+ * method and body are never forwarded: proxying a PATCH body to `get-session`
+ * makes Better Auth reject the read, and leaking route payloads into the
+ * session lookup would be wrong regardless. Only the cookie (and the headers
+ * that define the request origin) survive.
  */
 export async function getSession(
   auth: AuthInstance,
   request: AuthProxyRequest,
 ): Promise<AuthSessionResponse | null> {
-  const result = await dispatchAuth(auth, GET_SESSION_PATH, request);
+  const result = await dispatchAuth(auth, GET_SESSION_PATH, {
+    ...request,
+    method: 'GET',
+    body: undefined,
+  });
   if (result.status !== 200 || result.body === null) {
     return null;
   }

@@ -10,7 +10,7 @@ WERVI is delivered one subsystem at a time. Each phase is built, verified with
 | 1 | Foundation | **Complete** |
 | 2 | Database core | **Complete** |
 | 3 | Auth and accounts | **In progress** |
-| 4 | Profiles | Not started |
+| 4 | Profiles | **Complete** |
 | 5 | Jobs | Not started |
 | 6 | Proposals | Not started |
 | 7 | Contracts | Not started |
@@ -121,14 +121,57 @@ failures.
 
 Depends on: 2.
 
-## 4. Profiles
+## 4. Profiles — complete
 
-Freelancer profiles: headline, biography, hourly or fixed rates, availability,
-skills with proficiency, languages, timezone, and portfolio items with
-attachments on Cloudflare R2. Public profile pages that are server-rendered and
-indexable.
+Both profile halves, their skills and languages, and the read-only taxonomy
+that feeds them, delivered on top of the Phase 2 tables — no schema change was
+needed.
+
+- **Own-profile API**: `GET /profiles/me`, `PATCH /profiles/me` (creates either
+  half on first edit; a missing half is untouched, a present `null` clears a
+  nullable field), `GET`/`PUT /profiles/me/skills`, and
+  `GET`/`PUT /profiles/me/languages`. Skills and languages are replaced as
+  whole sets in one transaction; an empty list clears the profile. Skills must
+  name an active `skills` row and duplicates are rejected; language codes are
+  ISO 639-1, normalised to lowercase at the boundary, and de-duplicated.
+- **Public freelancer lookup**: `GET /profiles/:userId` serves a profile only
+  when it is `public` and the owner account is active; every other state is a
+  404 so private profiles cannot be fingerprinted.
+- **Taxonomy**: `GET /categories`, `GET /categories/:id`, `GET /skills`
+  (optionally filtered by `categoryId`), serving active rows in display order.
+  Unauthenticated, because sign-up needs the vocabulary before a session
+  exists; admin taxonomy management is deferred to the platform-operations
+  phase.
+- **Ownership is session-derived**: no contract here accepts a `userId`, roles,
+  statuses, email, or any account-level field — a strict entire schema rejects
+  them before they reach a write, and every read/write is keyed on
+  `request.authData.user.id`. Guards run as `preValidation`, so an
+  unauthenticated caller gets a 401 before body validation even with a
+  malformed payload.
+- **Auth-guard bug fix**: the session guard now always proxies Better Auth's
+  `get-session` as a cookie-only `GET`, instead of forwarding the outer
+  request's method and body, so PATCH/PUT routes authenticate correctly.
+- **Shared contracts**: strict Zod schemas in `@wervi/shared` for
+  `MyProfileResponse`, `PublicProfileResponse`, the freelancer/client halves,
+  profile skills and languages, and the category/skill taxonomy; the API
+  serialises to exactly these and the web app validates responses against
+  them. Locale validation (ISO 3166-1, ISO 639-1, IANA timezones) lives in the
+  same package with its own tests.
+- **Web app**: a `/profile` page (server-rendered, session-gated) with a fully
+  typed form for the freelancer and client halves, skill and language editors,
+  and validation errors from the API envelope.
+- **Tests**: 28 API integration tests against a real Postgres covering the
+  whole contract — 401/403 semantics, suspended/closed blocking, skil/language
+  attach/reject/duplicate/clear, taxonomy reads, mass-assignment and unknown
+  field rejection, public-profile privacy, and OpenAPI coverage — plus shared
+  locale tests. No DB-integration test is skipped when a dedicated test
+  database is available.
 
 Depends on: 3.
+
+Still ahead: portfolio items with attachments (Phase 4 adds the `files` table
+when the attachments groundwork is built, per `docs/DATABASE.md`), rated
+profile fields, and admin taxonomy management in the platform-operations phase.
 
 ## 5. Jobs
 
