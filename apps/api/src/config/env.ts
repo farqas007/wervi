@@ -33,8 +33,17 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
 
+    // Bind all interfaces by default so container/host networking (Render,
+    // Docker, etc.) can reach the server; never 127.0.0.1.
     API_HOST: z.string().min(1).default('0.0.0.0'),
-    API_PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
+    // Hosting platforms (Render, Heroku, Fly.io) inject `PORT`. When present it
+    // wins over API_PORT, so no production port is hardcoded. Locally (or when
+    // the platform does not set PORT) the existing API_PORT behavior is kept,
+    // defaulting to 4000 for development.
+    API_PORT: z.preprocess(
+      (value) => process.env['PORT'] ?? value,
+      z.coerce.number().int().min(1).max(65_535).default(4000),
+    ),
     API_BASE_URL: z.url().default('http://localhost:4000'),
     CORS_ORIGINS: listVar('http://localhost:3000'),
     API_EXPOSE_DOCS: booleanVar(process.env['NODE_ENV'] !== 'production'),
