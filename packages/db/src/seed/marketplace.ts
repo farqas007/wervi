@@ -42,6 +42,7 @@ export function seedMarketplace(): {
         id: seedIds.jobs.dashboard,
         clientId: seedIds.users.client,
         slug: 'analytics-dashboard-rebuild',
+        categoryId: seedIds.categories.engineering,
         title: 'Rebuild our analytics dashboard',
         description:
           'Replace a jQuery front end over a Postgres reporting schema. Data volume is small; correctness is not negotiable.',
@@ -64,6 +65,7 @@ export function seedMarketplace(): {
         id: seedIds.jobs.mobileApp,
         clientId: seedIds.users.client,
         slug: 'mobile-app-design-system',
+        categoryId: seedIds.categories.design,
         title: 'Design system for our mobile app',
         description: 'Component library and tokens for two platforms.',
         status: 'published',
@@ -82,6 +84,7 @@ export function seedMarketplace(): {
         id: seedIds.jobs.apiHardening,
         clientId: seedIds.users.client,
         slug: 'api-hardening-and-docs',
+        categoryId: seedIds.categories.writing,
         title: 'Harden our public API',
         description:
           'Rate limiting, typed errors, and documentation that matches.',
@@ -106,6 +109,7 @@ export function seedMarketplace(): {
         id: seedIds.jobs.brandGuidelines,
         clientId: seedIds.users.client,
         slug: 'brand-guidelines',
+        categoryId: seedIds.categories.design,
         title: 'Brand guidelines for a new product',
         description: 'Not ready to publish; do not show this to freelancers.',
         status: 'draft',

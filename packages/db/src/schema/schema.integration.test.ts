@@ -726,6 +726,52 @@ describe.skipIf(target.url === undefined)('schema constraints', () => {
         'jobs_currency_check',
       );
     });
+
+    it('rejects a job pointing at an unknown category', async () => {
+      const clientId = await insertUser();
+
+      await rejectsWith(
+        database.db.insert(jobs).values({
+          clientId,
+          categoryId: randomUUID(),
+          slug: `job-${randomUUID()}`,
+          title: 'Job',
+          description: 'Description',
+          status: 'draft',
+          visibility: 'private',
+          budgetModel: 'fixed',
+          currency: 'USD',
+          workMode: 'remote',
+        }),
+        'jobs_category_id_categories_id_fk',
+      );
+    });
+
+    it('keeps a category that is still filing a job', async () => {
+      const clientId = await insertUser();
+      const categoryId = randomUUID();
+      await database.db.insert(categories).values({
+        id: categoryId,
+        slug: `category-${categoryId}`,
+        name: 'Engineering',
+      });
+      await database.db.insert(jobs).values({
+        clientId,
+        categoryId,
+        slug: `job-${randomUUID()}`,
+        title: 'Job',
+        description: 'Description',
+        status: 'draft',
+        visibility: 'private',
+        budgetModel: 'fixed',
+        currency: 'USD',
+        workMode: 'remote',
+      });
+
+      await expect(
+        database.db.delete(categories).where(eq(categories.id, categoryId)),
+      ).rejects.toThrow();
+    });
   });
 
   describe('freelancer profiles', () => {

@@ -6,8 +6,8 @@ milestone-based escrow payments, messaging, reviews and disputes.
 
 WERVI is being built subsystem by subsystem. This repository currently
 contains **Phase 1 — the project foundation**, **Phase 2 — the database core**,
-**Phase 3 — auth and accounts** (in progress) and
-**Phase 4 — profiles and taxonomy** (complete).
+**Phase 3 — auth and accounts** (in progress), **Phase 4 — profiles and
+taxonomy** (complete) and **Phase 5 — jobs** (in progress).
 
 ---
 
@@ -61,7 +61,11 @@ Endpoints:
 - `GET|PUT /profiles/me/skills`, `GET|PUT /profiles/me/languages`
 - `GET /profiles/:userId` (public freelancer lookup)
 - `GET /categories`, `GET /categories/:id`, `GET /skills` (taxonomy)
+- `POST /jobs`, `GET /jobs` (public browse), `GET /jobs/:id`, `GET /jobs/me`,
+  `PATCH /jobs/:id`, `PUT /jobs/:id/status` (job lifecycle)
 - `/profile` (profile page in the web app, requires sign-in)
+- `/jobs`, `/jobs/new`, `/jobs/:id` (browse, post and detail pages in the web
+  app)
 
 If you prefer a local database instead of Neon, `docker-compose up -d` starts
 Postgres and Redis, and `.env` should point at

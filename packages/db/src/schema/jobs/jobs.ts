@@ -19,6 +19,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { users } from '../auth/users.js';
+import { categories } from '../taxonomy/categories.js';
 import {
   createdAt,
   currencyCode,
@@ -54,6 +55,13 @@ export const jobs = pgTable(
     clientId: uuid('client_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    // The taxonomy row the listing is filed under. RESTRICT, like a skill's
+    // category: a category that still files jobs is retired (`is_active =
+    // false`), not deleted. Nullable only so the column can be added to a
+    // table that already holds rows — every job the API creates carries one.
+    categoryId: uuid('category_id').references(() => categories.id, {
+      onDelete: 'restrict',
+    }),
     slug: text().notNull(),
     title: text().notNull(),
     description: text().notNull(),
@@ -82,6 +90,7 @@ export const jobs = pgTable(
     index('jobs_status_published_at_idx').on(table.status, table.publishedAt),
     index('jobs_client_id_created_at_idx').on(table.clientId, table.createdAt),
     index('jobs_work_mode_idx').on(table.workMode),
+    index('jobs_category_id_idx').on(table.categoryId),
     oneOf('jobs_status_check', table.status, JOB_STATUSES),
     oneOf('jobs_visibility_check', table.visibility, JOB_VISIBILITIES),
     oneOf('jobs_budget_model_check', table.budgetModel, BUDGET_MODELS),

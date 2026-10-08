@@ -11,7 +11,7 @@ WERVI is delivered one subsystem at a time. Each phase is built, verified with
 | 2 | Database core | **Complete** |
 | 3 | Auth and accounts | **In progress** |
 | 4 | Profiles | **Complete** |
-| 5 | Jobs | Not started |
+| 5 | Jobs | **In progress** |
 | 6 | Proposals | Not started |
 | 7 | Contracts | Not started |
 | 8 | Messaging | Not started |
@@ -173,14 +173,57 @@ Still ahead: portfolio items with attachments (Phase 4 adds the `files` table
 when the attachments groundwork is built, per `docs/DATABASE.md`), rated
 profile fields, and admin taxonomy management in the platform-operations phase.
 
-## 5. Jobs
+## 5. Jobs — foundation delivered
 
-Job lifecycle: draft, published, paused, closed. Budget models (fixed and
-hourly), experience level, duration, visibility, and attachments. Public
-browse and search using PostgreSQL full-text search with `pg_trgm` fuzzy
-matching, plus filters, sorting and pagination. Categories and skill taxonomy.
+The client-owned listing with its full lifecycle, strict wire contracts and
+the public browse surface. Built on the Phase 2 tables plus one schema change:
+`jobs.category_id`, a nullable foreign key to `categories` (nullable only
+because it was added to a table with rows; the API requires it on create).
+
+- **Lifecycle**: `draft → published → paused → closed`, validated against the
+  shared `JOB_STATUS_TRANSITIONS` map. An illegal move answers 409, re-setting
+  the current status is an idempotent no-op, and closed jobs refuse further
+  edits.
+- **API**: `POST /jobs` (client role), `GET /jobs/me` (owned listings with a
+  status filter), `GET /jobs/:id`, `GET /jobs` (public browse),
+  `PATCH /jobs/:id` (partial merge — a present key overwrites, an explicit
+  `null` clears a nullable column, an absent key keeps the stored value; the
+  merged budget pair is re-validated), and `PUT /jobs/:id/status`.
+- **Visibility and ownership**: browse serves only `published` + `public`
+  rows; detail resolves a stranger's listing only in that same state while the
+  owner — through a forwarded session cookie — sees their own job in any
+  state. Everything else is a 404 (non-fingerprintable), except a stranger
+  writing to a publicly visible job, which is 403.
+- **Browse filters**: escaped `ILIKE` search over title and description,
+  category, skills (any-match), experience level, budget model, currency, work
+  mode, and budget bounds in minor units paired with `currency`. The query
+  schema is strict: unknown or malformed parameters are 422 rather than
+  silently ignored. Ordering is deterministic — `published_at DESC, id DESC`
+  for browse (re-publishing refreshes `published_at`), `created_at DESC` for
+  owned listings — with offset pagination.
+- **Slugs**: generated server-side from the title, collision-retried with a
+  random suffix, never user-supplied.
+- **Shared contracts**: strict Zod schemas in `@wervi/shared` for create,
+  patch, status, both list queries and the job view (embedded category and
+  skills included), so mass assignment — `clientId`, `slug`, `proposalCount`,
+  `status` inside a patch — is rejected at the boundary.
+- **Web app**: `/jobs` (server-rendered browse with a filter form and
+  pagination), `/jobs/new` (session-gated, client-role-gated create form that
+  saves a draft or publishes), `/jobs/[id]` (detail page that forwards this
+  request's cookies, so the owner sees their own non-public listing, with
+  owner-only lifecycle buttons driven by the shared transition map).
+- **Tests**: 31 API integration tests against a real Postgres covering create
+  and slug uniqueness, taxonomy and malformed-body rejection, ownership and
+  visibility rules, every lifecycle edge, filters (including literal quotes
+  and wildcards in `q`), pagination, mass assignment, the authorization
+  matrix, and OpenAPI coverage — plus `jobs.category_id` foreign-key tests.
 
 Depends on: 3.
+
+Still ahead: PostgreSQL full-text search with `pg_trgm` fuzzy matching and
+sort options, attachments, a richer budget UI (the create form still takes
+minor-unit integers), an owner "my jobs" dashboard, proposal counters fed by
+Phase 6, and job moderation in the platform-operations phase.
 
 ## 6. Proposals
 

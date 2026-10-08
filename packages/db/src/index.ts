@@ -22,7 +22,7 @@ export { migrationsFolder } from './paths.js';
  * different `drizzle-orm` copy than the database type is a type error, so the
  * single place that owns the pool owns the operator types too.
  */
-export { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
+export { and, asc, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 export type { SQL } from 'drizzle-orm';
 
 export * from './schema/index.js';

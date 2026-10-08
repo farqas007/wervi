@@ -213,3 +213,36 @@ export type {
   ReplaceSkillsRequest,
   UpdateProfileRequest,
 } from './schemas/profiles.js';
+
+export {
+  INITIAL_JOB_STATUSES,
+  MAX_JOB_DESCRIPTION_LENGTH,
+  MAX_JOB_FILTER_SKILLS,
+  MAX_JOB_SEARCH_LENGTH,
+  MAX_JOB_SKILLS,
+  MAX_JOB_TITLE_LENGTH,
+  createJobRequestSchema,
+  initialJobStatusSchema,
+  jobListResponseSchema,
+  jobResponseSchema,
+  jobSchema,
+  jobSkillInputSchema,
+  jobSkillViewSchema,
+  listJobsQuerySchema,
+  myJobsQuerySchema,
+  updateJobRequestSchema,
+  updateJobStatusRequestSchema,
+} from './schemas/jobs.js';
+export type {
+  CreateJobRequest,
+  InitialJobStatus,
+  Job,
+  JobListResponse,
+  JobResponse,
+  JobSkillInput,
+  JobSkillView,
+  ListJobsQuery,
+  MyJobsQuery,
+  UpdateJobRequest,
+  UpdateJobStatusRequest,
+} from './schemas/jobs.js';

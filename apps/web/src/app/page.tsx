@@ -101,15 +101,20 @@ export default async function HomePage() {
           compare proposals, and hire with escrow-protected milestone payments.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            aria-disabled="true"
-            className="rounded-lg bg-slate-200 px-5 py-3 font-medium text-slate-500"
+          <Link
+            href="/jobs"
+            className="rounded-lg bg-brand-600 px-5 py-3 font-medium text-white transition hover:bg-brand-700"
           >
             Browse jobs
-          </span>
-          <span className="text-sm text-slate-500">
-            Job listings arrive in Phase 5.
-          </span>
+          </Link>
+          {session && session.user.roles.includes('client') && (
+            <Link
+              href="/jobs/new"
+              className="rounded-lg border border-slate-200 px-5 py-3 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Post a job
+            </Link>
+          )}
         </div>
       </header>
 

@@ -28,3 +28,16 @@ export type {
 } from './profiles.repository.js';
 
 export { DrizzleProfilesRepository } from './drizzle-profiles.repository.js';
+
+export type {
+  JobListFilters,
+  JobListPage,
+  JobRecord,
+  JobSkillRecord,
+  JobSkillWrite,
+  JobsRepository,
+  JobUpdate,
+  JobWrite,
+} from './jobs.repository.js';
+
+export { DrizzleJobsRepository } from './drizzle-jobs.repository.js';
