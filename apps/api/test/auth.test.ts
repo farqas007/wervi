@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
+import { DrizzleUsersRepository } from '../src/repositories/index.js';
 
 const target: TestDatabaseTarget = resolveTestDatabaseUrl();
 const skip = target.url === undefined;
@@ -344,6 +345,60 @@ describe.skipIf(skip)('auth endpoints', () => {
     expect(guarded.statusCode).toBe(403);
   });
 
+  it('blocks a pending account from using its session', async () => {
+    const payload = signupPayload();
+    const signedUp = await signup(payload);
+    const cookie = cookieHeader(signedUp);
+    const userId = signedUp.json().user.id as string;
+
+    await database.db
+      .update(users)
+      .set({ status: 'pending' })
+      .where(eq(users.id, userId));
+
+    const session = await app.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie },
+    });
+    expect(session.statusCode).toBe(403);
+    expect(session.json().error.code).toBe('forbidden');
+
+    const guarded = await app.inject({
+      method: 'GET',
+      url: '/auth/protected',
+      headers: { cookie },
+    });
+    expect(guarded.statusCode).toBe(403);
+  });
+
+  it('treats a soft-deleted account as signed out', async () => {
+    const payload = signupPayload();
+    const signedUp = await signup(payload);
+    const cookie = cookieHeader(signedUp);
+    const userId = signedUp.json().user.id as string;
+
+    await database.db
+      .update(users)
+      .set({ deletedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    const session = await app.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie },
+    });
+    expect(session.statusCode).toBe(401);
+    expect(session.json().error.code).toBe('unauthorized');
+
+    const guarded = await app.inject({
+      method: 'GET',
+      url: '/auth/protected',
+      headers: { cookie },
+    });
+    expect(guarded.statusCode).toBe(401);
+  });
+
   it('never lets a client assign roles or status through the API', async () => {
     const payload = signupPayload();
     payload.email = 'Sneaky@Example.com';
@@ -593,6 +648,28 @@ describe.skipIf(skip)('auth endpoints', () => {
           .set({ roles: ['root'] as unknown as Role[] })
           .where(eq(users.id, account.user.id)),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('users repository soft-delete', () => {
+    it('resolves an active user by id and email, then stops once deleted', async () => {
+      const payload = signupPayload();
+      const signedUp = await signup(payload);
+      const userId = signedUp.json().user.id as string;
+      const repository = new DrizzleUsersRepository(database);
+
+      const active = await repository.findById(userId);
+      expect(active).not.toBeNull();
+      expect(active?.deletedAt).toBeNull();
+      expect((await repository.findByEmail(payload.email))?.id).toBe(userId);
+
+      await database.db
+        .update(users)
+        .set({ deletedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      expect(await repository.findById(userId)).toBeNull();
+      expect(await repository.findByEmail(payload.email)).toBeNull();
     });
   });
 });

@@ -9,9 +9,10 @@ import type {
 /**
  * Drizzle implementation of `UsersRepository`.
  *
- * The column list is written out rather than `select()`-ing the whole table: it
- * is the reason `deleted_at` cannot leak into a response by accident, and it
- * keeps the mapping from row to `UserRecord` in one place.
+ * Soft-deleted rows are excluded from every lookup, so a deleted account can
+ * never be resolved, and the mapping from row to `UserRecord` lives in one
+ * place. `UserRecord` carries `deletedAt` explicitly even though the API's
+ * response schemas continue to prune it from the wire.
  */
 export class DrizzleUsersRepository implements UsersRepository {
   readonly #db: Database;
@@ -22,7 +23,11 @@ export class DrizzleUsersRepository implements UsersRepository {
 
   async findById(id: string): Promise<UserRecord | null> {
     const row = await this.#db.db.query.users.findFirst({
-      where: (table, operators) => operators.eq(table.id, id),
+      where: (table, operators) =>
+        operators.and(
+          operators.eq(table.id, id),
+          operators.isNull(table.deletedAt),
+        ),
     });
 
     return row === undefined ? null : toUserRecord(row);
@@ -34,7 +39,10 @@ export class DrizzleUsersRepository implements UsersRepository {
     // constraint already considers a duplicate.
     const row = await this.#db.db.query.users.findFirst({
       where: (table, operators) =>
-        operators.sql`lower(${table.email}) = lower(${email})`,
+        operators.and(
+          operators.sql`lower(${table.email}) = lower(${email})`,
+          operators.isNull(table.deletedAt),
+        ),
     });
 
     return row === undefined ? null : toUserRecord(row);
@@ -78,6 +86,7 @@ function toUserRecord(row: UserRow): UserRecord {
     image: row.image,
     roles: row.roles,
     status: row.status,
+    deletedAt: row.deletedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

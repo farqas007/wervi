@@ -21,6 +21,11 @@ const GET_SESSION_PATH = '/api/auth/get-session';
  * makes Better Auth reject the read, and leaking route payloads into the
  * session lookup would be wrong regardless. Only the cookie (and the headers
  * that define the request origin) survive.
+ *
+ * A soft-deleted account has no usable session: `deleted_at` is an additional
+ * field on the Better Auth user, present in the raw `get-session` payload
+ * before `toAuthUser` prunes it from the wire contract. Such a session is
+ * treated exactly like an absent one rather than surfaced to a caller.
  */
 export async function getSession(
   auth: AuthInstance,
@@ -34,14 +39,18 @@ export async function getSession(
   if (result.status !== 200 || result.body === null) {
     return null;
   }
+  if (isSoftDeleted(result.body)) {
+    return null;
+  }
   return toAuthSessionResponse(result.body);
 }
 
 /**
  * The guard every protected WERVI route uses. Unlike raw `getSession`, it
- * refuses when the cookie is missing *and* when the account has been
- * deactivated, so a suspended or closed user cannot keep using an open
- * session.
+ * refuses when the cookie is missing and unless the account is *active*: the
+ * check is an allowlist, so `pending`, `suspended`, `closed` and a missing
+ * status are all refused, and a soft-deleted user (already a signed-out
+ * session) is refused as unauthorized.
  */
 export async function getRequiredSession(
   auth: AuthInstance,
@@ -51,10 +60,29 @@ export async function getRequiredSession(
   if (session === null) {
     throw new UnauthorizedError('Not signed in');
   }
-  if (session.user.status === 'suspended' || session.user.status === 'closed') {
+  if (session.user.status !== 'active') {
     throw new ForbiddenError('Your account is not active');
   }
   return session;
+}
+
+/**
+ * Whether the raw `get-session` payload carries a soft-deleted user.
+ *
+ * Defensive about shape: anything that is not an object with a non-null
+ * `user.deletedAt` is treated as not deleted, and the normal mapping path then
+ * reports a contract fault if the payload is malformed.
+ */
+function isSoftDeleted(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return false;
+  }
+  const user = (body as Record<string, unknown>)['user'];
+  if (typeof user !== 'object' || user === null || Array.isArray(user)) {
+    return false;
+  }
+  const deletedAt = (user as Record<string, unknown>)['deletedAt'];
+  return deletedAt !== null && deletedAt !== undefined;
 }
 
 /**

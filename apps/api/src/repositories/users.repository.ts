@@ -15,6 +15,7 @@ export interface UserRecord {
   image: string | null;
   roles: Role[];
   status: UserStatus;
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
