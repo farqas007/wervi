@@ -23,10 +23,18 @@ describe('environment configuration', () => {
     vi.resetModules();
   });
 
-  async function resolveEnv(): Promise<{ port: number; host: string }> {
+  async function resolveEnv(): Promise<{
+    port: number;
+    host: string;
+    cookieSameSite: 'lax' | 'none';
+  }> {
     const { getEnv } = await import('../src/config/env.js');
     const env = getEnv();
-    return { port: env.API_PORT, host: env.API_HOST };
+    return {
+      port: env.API_PORT,
+      host: env.API_HOST,
+      cookieSameSite: env.BETTER_AUTH_COOKIE_SAME_SITE,
+    };
   }
 
   it('prefers the platform-injected PORT over API_PORT', async () => {
@@ -52,5 +60,18 @@ describe('environment configuration', () => {
 
   it('binds every interface by default', async () => {
     await expect(resolveEnv()).resolves.toMatchObject({ host: '0.0.0.0' });
+  });
+
+  it('defaults session cookies to SameSite=Lax', async () => {
+    await expect(resolveEnv()).resolves.toMatchObject({
+      cookieSameSite: 'lax',
+    });
+  });
+
+  it('allows cross-site session cookies via `none`', async () => {
+    vi.stubEnv('BETTER_AUTH_COOKIE_SAME_SITE', 'none');
+    await expect(resolveEnv()).resolves.toMatchObject({
+      cookieSameSite: 'none',
+    });
   });
 });

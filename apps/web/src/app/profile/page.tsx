@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import ProfileForm from '@/components/profile/profile-form';
 import {
@@ -16,11 +17,21 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
+  // Forward this request's cookies: the profile reads are authenticated, and
+  // Next's server fetch does not attach them automatically.
+  const cookieHeader = (await cookies()).toString();
+
   const [profile, skills, languages, categories, allSkills] = await Promise.all(
     [
-      fetchMyProfile(),
-      fetchMySkills(),
-      fetchMyLanguages(),
+      fetchMyProfile({
+        headers: cookieHeader.length > 0 ? { cookie: cookieHeader } : undefined,
+      }),
+      fetchMySkills({
+        headers: cookieHeader.length > 0 ? { cookie: cookieHeader } : undefined,
+      }),
+      fetchMyLanguages({
+        headers: cookieHeader.length > 0 ? { cookie: cookieHeader } : undefined,
+      }),
       fetchCategories(),
       fetchSkills(),
     ],

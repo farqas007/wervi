@@ -74,6 +74,7 @@ export const authPlugin: FastifyPluginCallback<AuthPluginOptions> =
         origin,
         secret: env.BETTER_AUTH_SECRET,
         trustedOrigins,
+        cookieSameSite: env.BETTER_AUTH_COOKIE_SAME_SITE,
       }),
     );
 

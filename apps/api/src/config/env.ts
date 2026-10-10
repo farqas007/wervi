@@ -72,6 +72,13 @@ const envSchema = z
     BETTER_AUTH_SECRET: z.string().min(16).optional(),
     BETTER_AUTH_URL: z.url().optional(),
     BETTER_AUTH_TRUSTED_ORIGINS: listVar(''),
+    // Session cookie SameSite policy. The default `lax` is right when the web
+    // app and API share a registrable domain. Hosting suffixes like
+    // `.onrender.com` are a *public* suffix, so `wervi-web.onrender.com` and
+    // `wervi-api.onrender.com` are different sites: a Lax cookie would never be
+    // sent across them. Set `none` to enable cross-site credentialed auth
+    // (Secure still applies because the base URL is https).
+    BETTER_AUTH_COOKIE_SAME_SITE: z.enum(['lax', 'none']).default('lax'),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {

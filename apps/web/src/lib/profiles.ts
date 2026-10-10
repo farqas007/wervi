@@ -21,9 +21,21 @@ import { apiRequest, type ApiError } from './api';
 
 export type { ApiError };
 
-export async function fetchMyProfile(): Promise<MyProfileResponse> {
+/**
+ * Server components must forward this request's cookies explicitly — Next's
+ * patched fetch does not — while client components rely on
+ * `credentials: 'include'`.
+ */
+export interface ProfilesApiOptions {
+  headers?: Record<string, string>;
+}
+
+export async function fetchMyProfile(
+  options: ProfilesApiOptions = {},
+): Promise<MyProfileResponse> {
   return apiRequest('/profiles/me', myProfileResponseSchema, {
     credentials: 'include',
+    headers: options.headers,
   });
 }
 
@@ -37,9 +49,12 @@ export async function updateMyProfile(
   });
 }
 
-export async function fetchMySkills(): Promise<ProfileSkillListResponse> {
+export async function fetchMySkills(
+  options: ProfilesApiOptions = {},
+): Promise<ProfileSkillListResponse> {
   return apiRequest('/profiles/me/skills', profileSkillListResponseSchema, {
     credentials: 'include',
+    headers: options.headers,
   });
 }
 
@@ -53,12 +68,15 @@ export async function replaceMySkills(
   });
 }
 
-export async function fetchMyLanguages(): Promise<ProfileLanguageListResponse> {
+export async function fetchMyLanguages(
+  options: ProfilesApiOptions = {},
+): Promise<ProfileLanguageListResponse> {
   return apiRequest(
     '/profiles/me/languages',
     profileLanguageListResponseSchema,
     {
       credentials: 'include',
+      headers: options.headers,
     },
   );
 }

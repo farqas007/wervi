@@ -1,0 +1,116 @@
+# WERVI - Render Blueprint (free tier, stock .onrender.com URLs)
+#
+# Two Node web services from the single pnpm monorepo:
+#   service 1  wervi-api  -> Fastify REST API (apps/api)
+#   service 2  wervi-web  -> Next.js app (apps/web)
+#
+# The database is external PostgreSQL (Neon) reached through DATABASE_URL, and
+# Redis is not consumed by the runtime yet, so no managed add-ons are declared.
+#
+# Origins are deliberately NOT hardcoded: Render rejects blueprints that embed
+# `*.onrender.com` URLs, and the real hostnames only exist once the services
+# are created. Every URL below is derived from each service's automatic
+# `RENDER_EXTERNAL_URL` via `fromService`, so this file is valid before the
+# first sync and the values track whatever Render assigns (renames, etc).
+#
+# Auth on free URLs: `wervi-web.onrender.com` and `wervi-api.onrender.com` are
+# different *sites* - `.onrender.com` is a public suffix - so SameSite=Lax
+# session cookies are never delivered across them. The API therefore sets
+# BETTER_AUTH_COOKIE_SAME_SITE=none, which keeps Secure cookies and still
+# validates the browser Origin against trusted origins (CSRF stays on).
+#
+# How to apply this blueprint (do it in the Render dashboard when ready):
+#   New -> Blueprint -> select this repository.
+#
+# Before the first deploy:
+#   1. Set the `sync: false` env vars below in the Render dashboard. They are
+#      secrets and never belong in a file (DATABASE_URL, BETTER_AUTH_SECRET).
+#   2. Run the database migrations once against the production database:
+#        DATABASE_URL=<prod> DATABASE_SSL=require pnpm --filter @wervi/db migrate
+#   3. Flip both `autoDeployTrigger` values to `commit` when trusted - they are
+#      `off` so a deployment cannot fire before secrets are configured.
+services:
+  - type: web
+    name: wervi-api
+    runtime: node
+    branch: main
+    plan: free
+    # Uncomment and set to your nearest region (oregon, ohio, frankfurt,
+    # singapore, ...). Render falls back to the account default when absent.
+    # region: oregon
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm --filter @wervi/api start
+    healthCheckPath: /health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '22'
+      - key: LOG_LEVEL
+        value: info
+      - key: API_HOST
+        value: 0.0.0.0
+      # Cross-site session cookies: the web and API are different sites on
+      # *.onrender.com, so Better Auth opts into SameSite=None.
+      - key: BETTER_AUTH_COOKIE_SAME_SITE
+        value: none
+      # Public API origin - this service's own auto-assigned URL. Better Auth
+      # anchors to it and scopes/secure-flags session cookies accordingly.
+      - key: API_BASE_URL
+        fromService:
+          name: wervi-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      # Browser origins allowed across origins (also feeds the auth trusted
+      # origins), i.e. the web service's public URL.
+      - key: CORS_ORIGINS
+        fromService:
+          name: wervi-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      # Secrets - set in the Render dashboard, never committed here.
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+
+  - type: web
+    name: wervi-web
+    runtime: node
+    branch: main
+    plan: free
+    # region: oregon
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm --filter @wervi/web start
+    healthCheckPath: /api/health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '22'
+      # === Build-time, inlined into the browser bundle ===
+      # Public API origin browsers fetch with credentials.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          name: wervi-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      # Public web origin, used for metadata and canonical URLs.
+      - key: NEXT_PUBLIC_SITE_URL
+        fromService:
+          name: wervi-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      # === Runtime only, used by Next.js server components ===
+      # How the web server reaches the API.
+      - key: API_BASE_URL
+        fromService:
+          name: wervi-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+      # Render injects PORT automatically. apps/web starts with
+      # `next start -H 0.0.0.0 -p ${PORT:-3000}`, so it honors that PORT and
+      # falls back to 3000 locally.

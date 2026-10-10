@@ -30,6 +30,16 @@ export interface AuthInstanceOptions {
   secret: string | undefined;
   /** Hosts allowed to make cookie-bearing requests (web apps and the API). */
   trustedOrigins: string[];
+  /**
+   * SameSite policy for session cookies. `'lax'` (default) is correct when web
+   * and API share a registrable domain. `'none'` is required when they are
+   * different sites (e.g. sibling `*.onrender.com` services), because the
+   * browser would otherwise drop Lax cookies on the frontend's cross-site
+   * credentialed fetches. Better Auth still sets the Secure flag (derived from
+   * the https base URL) and origin checks stay enabled, so CSRF protection is
+   * unaffected.
+   */
+  cookieSameSite: 'lax' | 'none';
 }
 
 /**
@@ -66,6 +76,13 @@ export function createAuthInstance(
         // `id` columns are database-defaulted UUIDs (see `primaryId()` in
         // @wervi/db), so Better Auth must not generate its own string ids.
         generateId: false,
+      },
+      // Flip the default SameSite=Lax only when the frontend and API are
+      // different sites (public-suffix hosts such as *.onrender.com).
+      // `defaultCookieAttributes` merges over the built-in defaults (secure,
+      // httpOnly, path), so this only touches sameSite.
+      defaultCookieAttributes: {
+        sameSite: options.cookieSameSite,
       },
     },
     user: {
